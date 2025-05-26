@@ -1,0 +1,9 @@
+[submodule "Depth-Anything-V2"]
+	path = Depth-Anything-V2
+	url = https://github.com/DepthAnything/Depth-Anything-V2.git
+[submodule "FoundationPose"]
+	path = FoundationPose
+	url = https://github.com/NVlabs/FoundationPose.git
+[submodule "Segment-and-Track-Anything"]
+	path = Segment-and-Track-Anything
+	url = https://github.com/facebookresearch/segment-anything.git

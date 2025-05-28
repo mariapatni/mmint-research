@@ -19,3 +19,6 @@
 [submodule "librealsense"]
 	path = librealsense
 	url = https://github.com/IntelRealSense/librealsense.git
+[submodule "src/groundingdino"]
+	path = src/groundingdino
+	url = https://github.com/IDEA-Research/GroundingDINO.git

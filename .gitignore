@@ -32,3 +32,11 @@ ENV/
 *.swp
 *.swo
 
+# Local configuration files
+vpn_ip.txt
+*connect.sh
+
+# Ignore build and cache directories in submodules
+**/build/
+**/__pycache__/
+

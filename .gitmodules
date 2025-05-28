@@ -7,3 +7,15 @@
 [submodule "Segment-and-Track-Anything"]
 	path = Segment-and-Track-Anything
 	url = https://github.com/facebookresearch/segment-anything.git
+[submodule "Pytorch-Correlation-extension"]
+	path = Pytorch-Correlation-extension
+	url = https://github.com/ClementPinard/Pytorch-Correlation-extension.git
+[submodule "sam"]
+	path = sam
+	url = https://github.com/facebookresearch/segment-anything.git
+[submodule "aot"]
+	path = aot
+	url = https://github.com/facebookresearch/segment-anything.git
+[submodule "librealsense"]
+	path = librealsense
+	url = https://github.com/IntelRealSense/librealsense.git

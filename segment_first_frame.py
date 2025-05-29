@@ -333,17 +333,21 @@ def main():
     
     # Set up input and output directories
     input_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "rgb")
-    output_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "masks")
+    masks_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "masks")
+    vis_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "vis")
     print(f"Input directory: {input_dir}")
-    print(f"Output directory: {output_dir}")
+    print(f"Masks directory: {masks_dir}")
+    print(f"Visualization directory: {vis_dir}")
     
-    # Create output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
+    # Create output directories if they don't exist
+    os.makedirs(masks_dir, exist_ok=True)
+    os.makedirs(vis_dir, exist_ok=True)
     
     # Clear existing output directory contents
-    if os.path.exists(output_dir):
-        for file in os.listdir(output_dir):
-            os.remove(os.path.join(output_dir, file))
+    for dir_path in [masks_dir, vis_dir]:
+        if os.path.exists(dir_path):
+            for file in os.listdir(dir_path):
+                os.remove(os.path.join(dir_path, file))
     
     # Initialize SegTracker
     segtracker = SegTracker(segtracker_args, sam_args, aot_args)
@@ -383,7 +387,7 @@ def main():
                 
                 if pred_mask is not None:
                     # Save debug visualization of all detected objects
-                    save_visualization(frame, pred_mask, output_dir, frame_num, debug_info={})
+                    save_visualization(frame, pred_mask, vis_dir, frame_num, debug_info={})
                     
                     # Select the object closest to center
                     pred_mask = select_center_object(pred_mask, frame.shape)
@@ -395,10 +399,10 @@ def main():
                     print(f"Frame {frame_num + 1}: Pixels = {np.sum(pred_mask)}")
                     
                     # Save mask visualization
-                    save_visualization(frame, pred_mask, output_dir, frame_num)
+                    save_visualization(frame, pred_mask, vis_dir, frame_num)
                     
                     # Save binary mask
-                    mask_path = os.path.join(output_dir, f"mask_{frame_num:04d}.png")
+                    mask_path = os.path.join(masks_dir, f"mask_{frame_num:04d}.png")
                     cv2.imwrite(mask_path, (pred_mask * 255).astype(np.uint8))
                     
                     # Initialize tracking with the selected mask
@@ -414,14 +418,14 @@ def main():
                 pred_mask = keep_largest_component(pred_mask)
                 
                 # Save binary mask
-                mask_path = os.path.join(output_dir, f"mask_{frame_num:04d}.png")
+                mask_path = os.path.join(masks_dir, f"mask_{frame_num:04d}.png")
                 cv2.imwrite(mask_path, (pred_mask * 255).astype(np.uint8))
             
             torch.cuda.empty_cache()
             gc.collect()
             
             # Save visualization
-            save_visualization(frame, pred_mask, output_dir, frame_num)
+            save_visualization(frame, pred_mask, vis_dir, frame_num)
             
             print(f"Processed frame {frame_num + 1}, obj_num {segtracker.get_obj_num()}", end='\r')
     

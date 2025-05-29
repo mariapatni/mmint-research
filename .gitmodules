@@ -15,7 +15,7 @@
 	url = https://github.com/facebookresearch/segment-anything.git
 [submodule "aot"]
 	path = aot
-	url = https://github.com/facebookresearch/segment-anything.git
+	url = https://github.com/yoxu515/aot-benchmark.git
 [submodule "librealsense"]
 	path = librealsense
 	url = https://github.com/IntelRealSense/librealsense.git

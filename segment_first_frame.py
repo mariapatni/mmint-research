@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 
 # Change working directory to Segment-and-Track-Anything
 segment_track_dir = os.path.join(os.path.dirname(__file__), 'Segment-and-Track-Anything')
@@ -9,7 +10,6 @@ sys.path.append('.')
 import cv2
 import torch
 import numpy as np
-import shutil
 import argparse
 from SegTracker import SegTracker
 from model_args import sam_args, aot_args, segtracker_args
@@ -339,9 +339,11 @@ def main():
     print(f"Masks directory: {masks_dir}")
     print(f"Visualization directory: {vis_dir}")
     
-    # Create output directories if they don't exist
-    os.makedirs(masks_dir, exist_ok=True)
-    os.makedirs(vis_dir, exist_ok=True)
+    # After defining masks_dir and vis_dir
+    for dir_path in [masks_dir, vis_dir]:
+        if os.path.exists(dir_path):
+            shutil.rmtree(dir_path)
+        os.makedirs(dir_path, exist_ok=True)
     
     # Clear existing output directory contents
     for dir_path in [masks_dir, vis_dir]:
@@ -402,7 +404,7 @@ def main():
                     save_visualization(frame, pred_mask, vis_dir, frame_num)
                     
                     # Save binary mask
-                    mask_path = os.path.join(masks_dir, f"mask_{frame_num:04d}.png")
+                    mask_path = os.path.join(masks_dir, f"{frame_num:04d}.png.png")
                     cv2.imwrite(mask_path, (pred_mask * 255).astype(np.uint8))
                     
                     # Initialize tracking with the selected mask
@@ -418,7 +420,7 @@ def main():
                 pred_mask = keep_largest_component(pred_mask)
                 
                 # Save binary mask
-                mask_path = os.path.join(masks_dir, f"mask_{frame_num:04d}.png")
+                mask_path = os.path.join(masks_dir, f"{frame_num:04d}.png.png")
                 cv2.imwrite(mask_path, (pred_mask * 255).astype(np.uint8))
             
             torch.cuda.empty_cache()

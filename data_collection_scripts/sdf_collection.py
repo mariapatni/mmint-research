@@ -7,6 +7,9 @@ import os
 import argparse
 import pyrealsense2 as rs
 import shutil  # Add shutil for directory removal
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from camera_classes import setup_digits
 
 def debug_print(message, debug_mode=False):
     """Print debug messages only when debug mode is enabled"""
@@ -140,6 +143,7 @@ def main():
     args = parser.parse_args()
     
     # Setup RealSense camera
+    print("Looking for RealSense camera...")
     camera_setup = setup_realsense()
     if camera_setup is None:
         print("No compatible RealSense camera found!")
@@ -154,56 +158,64 @@ def main():
     # Save camera intrinsics
     save_camera_intrinsics(object_dir, K)
     
-    print("\nStreaming started. Press 'q' to quit")
+    print("\nRecording started. Press Ctrl+C to stop")
     
     # Frame counter
     frame_count = 0
-    
-    # Create window
-    cv2.namedWindow('Camera Streams', cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Camera Streams', 1280, 480)  # Width for two 640x480 images
+    retry_count = 0
+    max_retries = 3
     
     try:
         while True:
-            # Wait for a coherent pair of frames
-            frames = pipeline.wait_for_frames()
-            color_frame = frames.get_color_frame()
-            depth_frame = frames.get_depth_frame()
-            
-            if not color_frame or not depth_frame:
-                continue
-            
-            # Convert images to numpy arrays
-            color_image = np.asanyarray(color_frame.get_data())
-            depth_image = np.asanyarray(depth_frame.get_data())
-            
-            # Create combined view
-            combined_view = create_combined_view(color_image, depth_image)
-            
-            # Display the combined view
-            cv2.imshow('Camera Streams', combined_view)
-            
-            # Save frames
-            save_frame(object_dir, frame_count, color_image, depth_image, args.debug)
-            
-            # Increment frame counter
-            frame_count += 1
-            
-            # Print status every 50 frames
-            if frame_count % 50 == 0:
-                print(f"Processed {frame_count} frames")
-            
-            # Check for quit key
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                print("Quit signal received")
-                break
-            
-            time.sleep(0.01)  # Small sleep to prevent high CPU usage
-            
+            try:
+                # Wait for a coherent pair of frames
+                frames = pipeline.wait_for_frames(timeout_ms=10000)  # Increased timeout
+                color_frame = frames.get_color_frame()
+                depth_frame = frames.get_depth_frame()
+                
+                if not color_frame or not depth_frame:
+                    print("No frames received, retrying...")
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        print("Too many retries, stopping...")
+                        break
+                    time.sleep(1)  # Wait before retrying
+                    continue
+                
+                # Reset retry count on successful frame
+                retry_count = 0
+                
+                # Convert images to numpy arrays
+                color_image = np.asanyarray(color_frame.get_data())
+                depth_image = np.asanyarray(depth_frame.get_data())
+                
+                # Save frames
+                save_frame(object_dir, frame_count, color_image, depth_image, args.debug)
+                
+                # Increment frame counter
+                frame_count += 1
+                
+                # Print status every 50 frames
+                if frame_count % 50 == 0:
+                    print(f"Processed {frame_count} frames")
+                
+                time.sleep(0.01)  # Small sleep to prevent high CPU usage
+                
+            except RuntimeError as e:
+                print(f"Error getting frames: {e}")
+                retry_count += 1
+                if retry_count >= max_retries:
+                    print("Too many errors, stopping...")
+                    break
+                print("Retrying in 1 second...")
+                time.sleep(1)
+                
+    except KeyboardInterrupt:
+        print("\nStopping recording...")
     finally:
         print("Cleaning up...")
-        cv2.destroyAllWindows()
         pipeline.stop()
+        print(f"Saved {frame_count} frames to {object_dir}")
 
 if __name__ == "__main__":
     main() 

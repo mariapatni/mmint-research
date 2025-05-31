@@ -3,6 +3,11 @@ import numpy as np
 import threading
 import time
 from queue import Queue
+import sys
+import os
+
+# Add parent directory to path to import camera_classes
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from camera_classes import setup_realsense
 
 def create_grid_layout(frames, num_cameras):

@@ -10,12 +10,7 @@ Segment-and-Track-Anything/
 FoundationPose/
 
 # Ignore data and output directories
-data/
-img_logs/
-result/
-results/
-assets/
-ast_master/
+data/*
 
 # Ignore Python cache and virtual environments
 *.pyc

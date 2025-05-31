@@ -3,7 +3,7 @@ import sys
 import shutil
 
 # Change working directory to Segment-and-Track-Anything
-segment_track_dir = os.path.join(os.path.dirname(__file__), 'Segment-and-Track-Anything')
+segment_track_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Segment-and-Track-Anything'))
 os.chdir(segment_track_dir)
 sys.path.append('.')
 
@@ -17,7 +17,7 @@ from PIL import Image
 from aot_tracker import _palette
 import gc
 
-# Update checkpoint paths to be relative to Segment-and-Track-Anything directory
+# Update checkpoint paths to be robust
 sam_args["sam_checkpoint"] = os.path.join(segment_track_dir, "ckpt/sam_vit_b_01ec64.pth")
 aot_args["model_path"] = os.path.join(segment_track_dir, "ckpt/R50_DeAOTL_PRE_YTB_DAV.pth")
 
@@ -327,11 +327,11 @@ def main():
     parser.add_argument('--object', type=str, required=True, help='Name of the object to track')
     args = parser.parse_args()
 
-    # Get the mmint-research directory path (only go up one level)
-    mmint_dir = os.path.dirname(os.path.abspath(__file__))
+    # Get the mmint-research directory path robustly
+    mmint_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     print(f"mmint-research directory: {mmint_dir}")
     
-    # Set up input and output directories
+    # Set up input and output directories robustly
     input_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "rgb")
     masks_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "masks")
     vis_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "vis")

@@ -26,8 +26,10 @@ def sample_images(object_dir, n):
 
 def run_colmap_feature_extraction(object_id, sample_every=5):
     """Run COLMAP feature extraction and matching on the object's images."""
-    # Define paths
-    object_dir = os.path.join("data/object_sdf_data", object_id)
+    # Get the mmint-research directory path robustly
+    mmint_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    # Define paths robustly
+    object_dir = os.path.join(mmint_dir, "data/object_sdf_data", object_id)
     images_dir = os.path.join(object_dir, "rgb_sampled")
     database_path = os.path.join(object_dir, "database.db")
     sparse_dir = os.path.join(object_dir, "sparse")

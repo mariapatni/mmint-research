@@ -3,7 +3,7 @@ import sys
 import shutil
 
 # Change working directory to Segment-and-Track-Anything
-segment_track_dir = os.path.join(os.path.dirname(__file__), 'Segment-and-Track-Anything')
+segment_track_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Segment-and-Track-Anything'))
 os.chdir(segment_track_dir)
 sys.path.append('.')
 
@@ -15,7 +15,7 @@ from SegTracker import SegTracker
 from model_args import sam_args, aot_args, segtracker_args
 import gc
 
-# Update checkpoint paths to be relative to Segment-and-Track-Anything directory
+# Update checkpoint paths to be robust
 sam_args["sam_checkpoint"] = os.path.join(segment_track_dir, "ckpt/sam_vit_b_01ec64.pth")
 aot_args["model_path"] = os.path.join(segment_track_dir, "ckpt/R50_DeAOTL_PRE_YTB_DAV.pth")
 
@@ -74,8 +74,8 @@ def main():
     parser.add_argument('--object', type=str, required=True, help='Name of the object to track')
     args = parser.parse_args()
 
-    # Get the mmint-research directory path
-    mmint_dir = os.path.dirname(os.path.abspath(__file__))
+    # Get the mmint-research directory path robustly
+    mmint_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     print(f"mmint-research directory: {mmint_dir}")
     
     # Set up input and output paths
@@ -118,7 +118,7 @@ def main():
                 cv2.circle(vis_frame, (x, y), 2, (0, 0, 255), -1)  # Red dots
     
     # Save visualization
-    vis_path = os.path.join(os.path.dirname(output_mask_path), "box_visualization.png")
+    vis_path = os.path.join(os.path.dirname(output_mask_path), "gripper_box_visualization.png")
     cv2.imwrite(vis_path, cv2.cvtColor(vis_frame, cv2.COLOR_RGB2BGR))
     print(f"Saved box visualization to {vis_path}")
     
@@ -166,19 +166,6 @@ def main():
         cv2.imwrite(output_mask_path, final_mask)
         print(f"Saved mask to {output_mask_path}")
         
-        # Create and clear g_mask directory
-        g_mask_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "g_mask")
-        if os.path.exists(g_mask_dir):
-            shutil.rmtree(g_mask_dir)
-        os.makedirs(g_mask_dir)
-        
-        # Copy mask to all RGB images
-        rgb_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "rgb")
-        for img_file in os.listdir(rgb_dir):
-            if img_file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                # Copy the mask with the same name as the image + .png
-                shutil.copy2(output_mask_path, os.path.join(g_mask_dir, f"{img_file}.png"))
-                print(f"Copied mask to {os.path.join(g_mask_dir, f'{img_file}.png')}")
     else:
         print("No suitable masks found in first frame")
     

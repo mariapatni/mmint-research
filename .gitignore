@@ -10,7 +10,15 @@ Segment-and-Track-Anything/
 FoundationPose/
 
 # Ignore data and output directories
-data/*
+data/
+debug_pose/
+FoundationPose/debug/
+FoundationPose/debug1/
+FoundationPose/weights/
+input.mp4
+*.mp4
+*.avi
+*.mov
 
 # Ignore Python cache and virtual environments
 *.pyc

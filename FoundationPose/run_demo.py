@@ -15,12 +15,28 @@ import argparse
 if __name__=='__main__':
   parser = argparse.ArgumentParser()
   code_dir = os.path.dirname(os.path.realpath(__file__))
-  parser.add_argument('--mesh_file', type=str, default=f'{code_dir}/demo_data/mustard0/mesh/textured_simple.obj')
-  parser.add_argument('--test_scene_dir', type=str, default=f'{code_dir}/demo_data/mustard0')
+  print(code_dir)
+  parser.add_argument('--mesh_file', type=str, default=f'../data/object_sdf_data/lego/exports/mesh_highres/mesh_scaled.obj')
+  # parser.add_argument('--test_scene_dir', type=str, default=f'../data_collection/out')
+
+  # parser.add_argument('--mesh_file', type=str, default=f'./demo_data/mustard0/mesh/textured_simple.obj')
+  # parser.add_argument('--test_scene_dir', type=str, default=f'./assets/robot_mustard_frames')
+
+  #parser.add_argument('--test_scene_dir', type=str, default=f'../data_collection/out'
+  
+  parser.add_argument('--test_scene_dir', type=str, default=f'../data_collection/out')
+
+  #parser.add_argument('--mesh_file', type=str, default=f'{code_dir}/demo_data/mustard0/mesh/textured_simple.obj')
+  #parser.add_argument('--test_scene_dir', type=str, default=f'{code_dir}/demo_data/mustard0')
+
+  
   parser.add_argument('--est_refine_iter', type=int, default=5)
   parser.add_argument('--track_refine_iter', type=int, default=2)
   parser.add_argument('--debug', type=int, default=1)
   parser.add_argument('--debug_dir', type=str, default=f'{code_dir}/debug')
+  parser.add_argument('--headless', action='store_true', help='Run in headless mode without display')
+  parser.add_argument('--depth_scale', type=float, default=1.0,
+                     help='Scale factor to apply to depth data (default: 1.0)')
   args = parser.parse_args()
 
   set_logging_format()
@@ -45,8 +61,28 @@ if __name__=='__main__':
 
   for i in range(len(reader.color_files)):
     logging.info(f'i:{i}')
+
     color = reader.get_color(i)
     depth = reader.get_depth(i)
+
+    print(f"depth.shape: {depth.shape}")
+    print(f"depth.min(): {depth.min()}")
+    print(f"depth.max(): {depth.max()}")
+
+    
+
+    
+
+    
+
+    print(f"depth.shape: {depth.shape}")
+    print(f"depth.min(): {depth.min()}")
+    print(f"depth.max(): {depth.max()}")
+    print(f"depth.dtype: {depth.dtype}")
+    print(f"Raw depth at center: {depth[240, 320]}")
+
+    
+    
     if i==0:
       mask = reader.get_mask(0).astype(bool)
       pose = est.register(K=reader.K, rgb=color, depth=depth, ob_mask=mask, iteration=args.est_refine_iter)
@@ -69,9 +105,14 @@ if __name__=='__main__':
       center_pose = pose@np.linalg.inv(to_origin)
       vis = draw_posed_3d_box(reader.K, img=color, ob_in_cam=center_pose, bbox=bbox)
       vis = draw_xyz_axis(color, ob_in_cam=center_pose, scale=0.1, K=reader.K, thickness=3, transparency=0, is_input_rgb=True)
-      cv2.imshow('1', vis[...,::-1])
-      cv2.waitKey(1)
-
+      
+      # Only show display if not in headless mode
+      if not args.headless:
+        try:
+          cv2.imshow('1', vis[...,::-1])
+          cv2.waitKey(1)
+        except Exception as e:
+          logging.warning(f"Display not available: {e}. Continuing in headless mode.")
 
     if debug>=2:
       os.makedirs(f'{debug_dir}/track_vis', exist_ok=True)

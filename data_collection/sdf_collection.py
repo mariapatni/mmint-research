@@ -8,6 +8,7 @@ import argparse
 import pyrealsense2 as rs
 import shutil  # Add shutil for directory removal
 import sys
+import gc
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from camera_classes import setup_digits
 
@@ -38,7 +39,7 @@ def create_output_directories(object_name):
     
     # Create object directory and clean it if it exists
     object_dir = os.path.join(sdf_dir, object_name)
-    cleanup_directory(object_dir)
+    cleanup_directory(object_dir)  # Always delete if exists
     os.makedirs(object_dir, exist_ok=True)
     
     # Create subdirectories for RGB, depth, and masks
@@ -53,18 +54,23 @@ def create_output_directories(object_name):
     return object_dir
 
 def setup_realsense():
-    """Setup RealSense camera (prefer D405, fallback to D435)"""
+    """Setup RealSense camera (prefer D405, fallback to D435s, only use allowed serials)"""
+    allowed_serials = ["218622278343", "250122077836", "137322076022"]
     ctx = rs.context()
     devices = list(ctx.query_devices())
-    
-    # Look for D405 first, then D435
+    found = {serial: None for serial in allowed_serials}
     for device in devices:
         serial = device.get_info(rs.camera_info.serial_number)
-        if serial == "218622278343":  # D405
+        if serial in allowed_serials:
+            found[serial] = device
+    # Prefer D405
+    if found["218622278343"] is not None:
+        return setup_camera("218622278343")
+    # Otherwise, use D435s in order
+    for serial in ["250122077836", "137322076022"]:
+        if found[serial] is not None:
             return setup_camera(serial)
-        elif serial == "137322077775":  # D435
-            return setup_camera(serial)
-    
+    print("No compatible RealSense camera (D405 or D435 with allowed serials) found!")
     return None
 
 def setup_camera(serial):
@@ -191,7 +197,14 @@ def main():
                 
                 # Save frames
                 save_frame(object_dir, frame_count, color_image, depth_image, args.debug)
-                
+
+                # Show live preview window
+                combined_view = create_combined_view(color_image, depth_image)
+                cv2.imshow('Live Preview (press q to quit)', combined_view)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    print("\nStopping recording...")
+                    break
+
                 # Increment frame counter
                 frame_count += 1
                 
@@ -215,6 +228,9 @@ def main():
     finally:
         print("Cleaning up...")
         pipeline.stop()
+        del pipeline
+        cv2.destroyAllWindows()
+        gc.collect()
         print(f"Saved {frame_count} frames to {object_dir}")
 
 if __name__ == "__main__":

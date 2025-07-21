@@ -121,6 +121,10 @@ class YcbineoatReader:
 
   def get_depth(self,i):
     depth = cv2.imread(self.color_files[i].replace('rgb','depth'),-1)/1e3
+    # Ensure depth is 2D (single channel)
+    if len(depth.shape) == 3:
+        # If 3D, take the first channel (assuming grayscale depth)
+        depth = depth[:,:,0]
     depth = cv2.resize(depth, (self.W,self.H), interpolation=cv2.INTER_NEAREST)
     depth[(depth<0.001) | (depth>=self.zfar)] = 0
     return depth

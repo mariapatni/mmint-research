@@ -6,7 +6,6 @@ from queue import Queue
 from digit_interface import DigitHandler
 from digit_interface.digit import Digit
 import pyrealsense2 as rs
-import open3d as o3d
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))

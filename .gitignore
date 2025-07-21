@@ -23,6 +23,13 @@ input.mp4
 # Ignore data collection output
 data_collection/out/
 
+# Ignore large files and debug outputs
+merged_pcd.ply
+mesh_analysis.png
+nerf_scaled.ply
+object2_results/debug/
+object2_results/
+
 # Ignore Python cache and virtual environments
 *.pyc
 *.pyo

@@ -22,3 +22,6 @@
 [submodule "src/groundingdino"]
 	path = src/groundingdino
 	url = https://github.com/IDEA-Research/GroundingDINO.git
+[submodule "FoundationPose-plus-plus"]
+	path = FoundationPose-plus-plus
+	url = https://github.com/teal024/FoundationPose-plus-plus.git

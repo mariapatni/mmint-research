@@ -641,43 +641,23 @@ def keep_largest_component(mask):
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Segment and track object in video frames')
-    parser.add_argument('--object', type=str, required=True, help='Name of the object to track')
-    parser.add_argument('--input_dir', type=str, help='Custom input directory path (overrides default object_sdf_data path)')
+    parser.add_argument('--input_dir', type=str, required=True, help='Custom input directory path (overrides default object_sdf_data path)')
     parser.add_argument('--output_dir', type=str, help='Custom output directory path (overrides default object_sdf_data path)')
-    parser.add_argument('--x0', type=int, help='Left edge of bounding box (default: auto)')
-    parser.add_argument('--y0', type=int, help='Top edge of bounding box (default: auto)')
-    parser.add_argument('--x1', type=int, help='Right edge of bounding box (default: auto)')
-    parser.add_argument('--y1', type=int, help='Bottom edge of bounding box (default: auto)')
-    parser.add_argument('--width', type=int, help='Width of bounding box (default: auto)')
-    parser.add_argument('--height', type=int, help='Height of bounding box (default: auto)')
-    parser.add_argument('--center_x', type=int, help='Center X of bounding box (default: auto)')
-    parser.add_argument('--center_y', type=int, help='Center Y of bounding box (default: auto)')
     args = parser.parse_args()
 
-    # Get the mmint-research directory path robustly
-    mmint_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    print(f"mmint-research directory: {mmint_dir}")
+    input_dir = args.input_dir
+
+    output_base_dir = input_dir
+    masks_dir = input_dir.replace("rgb", "masks")
+    vis_dir = input_dir.replace("rgb", "vis")
     
-    # Set up input and output directories
-    if args.input_dir:
-        # Use custom input directory
-        input_dir = args.input_dir
-        print(f"Using custom input directory: {input_dir}")
-    else:
-        # Use default object_sdf_data path
-        input_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "rgb")
-        print(f"Using default input directory: {input_dir}")
     
     if args.output_dir:
         # Use custom output directory
         masks_dir = os.path.join(args.output_dir, "masks")
         vis_dir = os.path.join(args.output_dir, "vis")
         print(f"Using custom output directory: {args.output_dir}")
-    else:
-        # Use default object_sdf_data path
-        masks_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "masks")
-        vis_dir = os.path.join(mmint_dir, "data/object_sdf_data", args.object, "vis")
-        print(f"Using default output directory: {os.path.join(mmint_dir, 'data/object_sdf_data', args.object)}")
+    
     
     print(f"Input directory: {input_dir}")
     print(f"Masks directory: {masks_dir}")

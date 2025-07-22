@@ -129,7 +129,23 @@ def load_nerfstudio_point_cloud():
     
     return pcd
 
-def visualize_overlay(lidar_pcd, nerf_mesh, nerf_pcd=None):
+def load_foundation_point_cloud():
+    """
+    Load the foundation point cloud
+    """
+    pcd_path = "./FoundationPose/debug/scene_complete.ply"
+    
+    if not os.path.exists(pcd_path):
+        print(f"❌ Foundation point cloud not found at: {pcd_path}")
+        return None
+    
+    print(f"📁 Loading foundation point cloud from: {pcd_path}")
+    pcd = o3d.io.read_point_cloud(pcd_path)
+
+    return pcd
+
+
+def visualize_overlay(lidar_pcd, nerf_mesh, nerf_pcd=None, foundation_pcd=None):
     """
     Visualize the overlay of lidar point cloud, nerfstudio mesh, and nerfstudio point cloud
     """
@@ -145,6 +161,9 @@ def visualize_overlay(lidar_pcd, nerf_mesh, nerf_pcd=None):
 
     if nerf_pcd is not None:
         vis.add_geometry(nerf_pcd)
+    
+    if foundation_pcd is not None:
+        vis.add_geometry(foundation_pcd)
     
     # Set mesh rendering properties for better visualization
     opt = vis.get_render_option()
@@ -285,12 +304,17 @@ def main():
         print("⚠️  Nerfstudio point cloud not available, continuing with mesh only")
         nerf_pcd = None
 
-    
+    # Load foundation point cloud
+    foundation_pcd = load_foundation_point_cloud()
+    if foundation_pcd is None:
+        print("⚠️  Foundation point cloud not available, continuing with mesh only")
+        foundation_pcd = None
+
     # Analyze alignment
     analyze_alignment(lidar_pcd, nerf_mesh)
     
     # Visualize overlay
-    visualize_overlay(lidar_pcd, nerf_mesh, nerf_pcd)
+    visualize_overlay(lidar_pcd, nerf_mesh, nerf_pcd, foundation_pcd)
 
 if __name__ == "__main__":
     main() 

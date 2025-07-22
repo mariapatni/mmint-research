@@ -32,6 +32,8 @@ if __name__=='__main__':
   
   parser.add_argument('--est_refine_iter', type=int, default=5)
   parser.add_argument('--track_refine_iter', type=int, default=2)
+  parser.add_argument('--reg_freq', type=int, default=200,
+                     help='Perform registration every N frames (default: 10)')
   parser.add_argument('--debug', type=int, default=1)
   parser.add_argument('--debug_dir', type=str, default=f'{code_dir}/debug')
   parser.add_argument('--headless', action='store_true', help='Run in headless mode without display')
@@ -96,7 +98,14 @@ if __name__=='__main__':
         pcd = toOpen3dCloud(xyz_map[valid], color[valid])
         o3d.io.write_point_cloud(f'{debug_dir}/scene_complete.ply', pcd)
     else:
-      pose = est.track_one(rgb=color, depth=depth, K=reader.K, iteration=args.track_refine_iter)
+      # Perform registration every reg_freq frames
+      if i % args.reg_freq == 0:
+        logging.info(f'Performing registration at frame {i}')
+        mask = reader.get_mask(i).astype(bool)
+        pose = est.register(K=reader.K, rgb=color, depth=depth, ob_mask=mask, iteration=args.est_refine_iter)
+      else:
+        # Regular tracking for other frames
+        pose = est.track_one(rgb=color, depth=depth, K=reader.K, iteration=args.track_refine_iter)
 
     os.makedirs(f'{debug_dir}/ob_in_cam', exist_ok=True)
     np.savetxt(f'{debug_dir}/ob_in_cam/{reader.id_strs[i]}.txt', pose.reshape(4,4))

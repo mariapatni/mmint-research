@@ -156,17 +156,10 @@ class RealSenseCamera(Camera):
             
             # Enable device with specific serial
             self.config.enable_device(self.serial)
+
+            self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+            self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
             
-            # Different configuration for D405 vs other cameras
-            if self.serial == "218622278343":  # D405 camera
-                print(f"Using D405-specific configuration for camera {self.serial}")
-                # Try RGB8 format instead of YUYV for D405
-                self.config.enable_stream(rs.stream.color, 640, 480, rs.format.rgb8, 30)
-                self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-            else:
-                # Default configuration for other cameras (D435 etc.)
-                self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-                self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
             
             # Start pipeline
             profile = self.pipeline.start(self.config)
@@ -178,35 +171,15 @@ class RealSenseCamera(Camera):
             self.align = rs.align(rs.stream.color)
             
             # Set device options for better performance
-            if self.device:
+            try:
                 depth_sensor = self.device.first_depth_sensor()
-                if depth_sensor:
-                    try:
-                        # First disable auto-exposure
-                        depth_sensor.set_option(rs.option.enable_auto_exposure, False)
-                        # Then set manual exposure
-                        depth_sensor.set_option(rs.option.exposure, 8500)
-                    except Exception as e:
-                        print(f"Warning: Could not set exposure for RealSense {self.serial}: {e}")
-                        # If manual setting fails, try enabling auto-exposure
-                        try:
-                            depth_sensor.set_option(rs.option.enable_auto_exposure, True)
-                        except Exception as e:
-                            print(f"Warning: Could not enable auto-exposure for RealSense {self.serial}: {e}")
-                    
-                    try:
-                        # Set laser power
-                        # D405 doesn't support laser power option
-                        if '218622278343' not in self.serial:  # Skip for D405 camera
-                            depth_sensor.set_option(rs.option.laser_power, 100)
-                    except Exception as e:
-                        print(f"Warning: Could not set laser power for RealSense {self.serial}: {e}")
-                    
-                    try:
-                        # Set depth units to millimeters
-                        depth_sensor.set_option(rs.option.depth_units, 0.001)
-                    except Exception as e:
-                        print(f"Warning: Could not set depth units for RealSense {self.serial}: {e}")
+                self.depth_scale = depth_sensor.get_depth_scale()
+                print("depth_scale = ", self.depth_scale)
+                depth_sensor.set_option(rs.option.laser_power, 100)
+                depth_sensor.set_option(rs.option.enable_auto_exposure, True)
+                
+            except Exception as e:
+                print(f"Warning: Could not get depth scale and set options for RealSense {self.serial}: {e}")
             
             self.connected = True
             self._connected_serials.add(self.serial)
@@ -226,34 +199,9 @@ class RealSenseCamera(Camera):
             
         print(f"Starting stream loop for RealSense {self.serial}")
         try:
-            # Create filters with reduced settings for better performance
-            depth_filter = rs.spatial_filter()
-            depth_filter.set_option(rs.option.filter_magnitude, 1)  # Reduced from 2
-            depth_filter.set_option(rs.option.filter_smooth_alpha, 0.4)  # Reduced from 0.5
-            depth_filter.set_option(rs.option.filter_smooth_delta, 15)  # Reduced from 20
             
-            # Create depth to disparity filter
-            depth_to_disparity = rs.disparity_transform(True)
-            
-            # Create disparity to depth filter
-            disparity_to_depth = rs.disparity_transform(False)
-            
-            # Define depth range in millimeters - adjust based on camera model
-              # 10cm - safe minimum for all RealSense models
-            # The D405 has a shorter range than D435
-            if '218622278343' in self.serial:  # D405 camera
-                MIN_DEPTH = 50  # D405 works at very close range
-                MAX_DEPTH = 600  # Match the MAX_DEPTH of other cameras for consistent visualization
-                
-                # Special filter settings for D405
-                depth_filter.set_option(rs.option.filter_magnitude, 2)
-                depth_filter.set_option(rs.option.filter_smooth_alpha, 0.5)
-                depth_filter.set_option(rs.option.filter_smooth_delta, 20)
-                
-                print(f"D405 camera {self.serial} depth range set to {MIN_DEPTH}-{MAX_DEPTH}mm")
-            else:
-                MIN_DEPTH = 100
-                MAX_DEPTH = 600  # 60cm for D435
+            MIN_DEPTH = 0
+            MAX_DEPTH = 600  # 60cm for D435
             
             frame_count = 0
             last_log_time = time.time()
@@ -276,85 +224,31 @@ class RealSenseCamera(Camera):
                     
                     # Wait for frames with increased timeout
                     frames = self.pipeline.wait_for_frames(timeout_ms=self._frame_timeout)
-                    
-                    # Align depth frame to color frame
                     aligned_frames = self.align.process(frames)
                     
                     # Get color and depth frames
                     color_frame = aligned_frames.get_color_frame()
                     depth_frame = aligned_frames.get_depth_frame()
+
+                    intrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
+
                     
                     if not color_frame or not depth_frame:
                         print(f"Warning: Missing frames for RealSense {self.serial}")
                         continue
                     
-                    # Apply depth filters
-                    filtered_depth = depth_frame
-                    filtered_depth = depth_to_disparity.process(filtered_depth)
-                    filtered_depth = depth_filter.process(filtered_depth)
-                    filtered_depth = disparity_to_depth.process(filtered_depth)
+                    color_img = np.asanyarray(color_frame.get_data())
+                    depth_img = np.asanyarray(depth_frame.get_data())
+
                     
-                    # Convert to numpy arrays
-                    if self.serial == "218622278343":  # D405 camera
-                        try:
-                            # Convert RGB8 to BGR format for consistency with other cameras
-                            color_img_rgb = np.asanyarray(color_frame.get_data())
-                            
-                            # Check that we have a proper RGB array
-                            if len(color_img_rgb.shape) == 3 and color_img_rgb.shape[2] == 3:
-                                # Convert from RGB to BGR (OpenCV's preferred format)
-                                color_img = cv2.cvtColor(color_img_rgb, cv2.COLOR_RGB2BGR)
-                            else:
-                                # Fallback if we don't get a proper RGB array
-                                print(f"D405 camera: Unexpected RGB format: {color_img_rgb.shape}")
-                                color_img = np.zeros((480, 640, 3), dtype=np.uint8)
-                                font = cv2.FONT_HERSHEY_SIMPLEX
-                                cv2.putText(color_img, f"D405 Camera {self.serial}", (50, 240), font, 1, (255, 255, 255), 2)
-                        except Exception as e:
-                            print(f"Error processing RGB frame from D405 {self.serial}: {e}")
-                            # Create a blank color image as a fallback
-                            color_img = np.zeros((480, 640, 3), dtype=np.uint8)
-                            # Add text to the image
-                            font = cv2.FONT_HERSHEY_SIMPLEX
-                            cv2.putText(color_img, f"D405 Camera {self.serial}", (50, 240), font, 1, (255, 255, 255), 2)
-                    else:
-                        # For other cameras, the format is already BGR8
-                        color_img = np.asanyarray(color_frame.get_data())
-                        
-                    depth_img = np.asanyarray(filtered_depth.get_data())
-                    
-                    # Print depth stats every 30 frames
-                    if frame_count % 30 == 0 and False:  # Disabled depth stats printing
-                        # Only consider non-zero depth values
-                        non_zero_depths = depth_img[depth_img > 0]
-                        if len(non_zero_depths) > 0:
-                            min_actual = np.min(non_zero_depths)
-                            max_actual = np.max(non_zero_depths)
-                            mean_depth = np.mean(non_zero_depths)
-                            print(f"Camera {self.serial} - Depth stats (mm): min={min_actual}, max={max_actual}, mean={mean_depth}, range={MIN_DEPTH}-{MAX_DEPTH}")
-                    
-                    # Normalize and colorize depth image
-                    if self.serial == "218622278343":  # D405 camera
-                        # Use the simple, standard method that works well in the RealSense examples
-                        depth_colormap = cv2.applyColorMap(
-                            cv2.convertScaleAbs(depth_img, alpha=0.03), 
-                            cv2.COLORMAP_JET
-                        )
-                    else:
-                        # Standard approach for D435 cameras
-                        # Clamp depth values between MIN_DEPTH and MAX_DEPTH
-                        depth_img = np.clip(depth_img, MIN_DEPTH, MAX_DEPTH)
-                        
-                        # Normalize depth values to 0-255 range
-                        depth_normalized = ((depth_img - MIN_DEPTH) * (255.0 / (MAX_DEPTH - MIN_DEPTH))).astype(np.uint8)
-                        
-                        # Create depth colormap
-                        depth_colormap = cv2.applyColorMap(depth_normalized, cv2.COLORMAP_JET)
+                    depth_img_meters = (depth_img * self.depth_scale).astype(np.float32)
+                    depth_img_mm = (depth_img_meters * 1000).astype(np.uint16)
                     
                     # Create frame dictionary
                     frame_dict = {
                         'color': color_img,
-                        'depth': depth_colormap
+                        'depth': depth_img_mm,
+                        'intrinsics': intrinsics
                     }
                     
                     # Update last frame time

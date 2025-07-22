@@ -16,7 +16,7 @@ import yaml
 
 
 class FoundationPose:
-  def __init__(self, model_pts, model_normals, symmetry_tfs=None, mesh=None, scorer:ScorePredictor=None, refiner:PoseRefinePredictor=None, glctx=None, debug=0, debug_dir='/home/bowen/debug/novel_pose_debug/'):
+  def __init__(self, model_pts, model_normals, symmetry_tfs=None, mesh=None, scorer:ScorePredictor=None, refiner:PoseRefinePredictor=None, glctx=None, debug=0, debug_dir='./debug/novel_pose_debug/'):
     self.gt_pose = None
     self.ignore_normal_flip = True
     self.debug = debug

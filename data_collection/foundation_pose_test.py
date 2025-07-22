@@ -82,9 +82,10 @@ if not os.path.exists(subfolder_depth):
 if not os.path.exists(subfolder_rgb):
     os.makedirs(subfolder_rgb)
 
+
 RecordStream = False
 frame_count = 0
-max_frames = 10  # Limit to prevent memory issues
+max_frames = 200  # Limit to prevent memory issues
 
 # Streaming loop
 try:
@@ -98,6 +99,9 @@ try:
             continue
             
         # frames.get_depth_frame() is a 640x360 depth image
+
+      
+
 
         # Align the depth frame to color frame
         aligned_frames = align.process(frames)
@@ -125,9 +129,9 @@ try:
         if RecordStream:
             print(f"Raw depth - dtype: {depth_image.dtype}, shape: {depth_image.shape}")
             print(f"Raw depth - min: {depth_image.min()}, max: {depth_image.max()}")
-            print(f"Raw depth - sample values: {depth_image[240, 320:325]}")
+            print(f"Raw depth - sample values: {depth_image[259, 244:249]}")
             print(f"Depth scale: {depth_scale}")
-            print(f"Depth in meters - sample: {depth_image[240, 320] * depth_scale:.3f} m")
+            print(f"Depth in meters - sample: {depth_image[259, 244] * depth_scale:.3f} m")
             print(f"Valid depth pixels: {np.sum((depth_image > 0) & (depth_image < 65535))}")
 
         # Display the aligned color image
@@ -174,9 +178,23 @@ try:
             try:
                 # Save aligned depth and RGB frames
                 # Convert depth from mm to meters by dividing by 1000
-                depth_meters = (depth_image / 10).astype(np.uint16)
-                success_depth = cv2.imwrite(image_path_depth, depth_meters)
+
+                print("raw depth = ", depth_image[259, 244])
+                print("depth scale = ", depth_scale)
+                
+
+                depth_m = (depth_image * depth_scale).astype(np.float32)
+                depth_mm = (depth_m * 1000.0).astype(np.uint16)
+
+                print("actual depth_m =", depth_image[259, 244] * depth_scale)
+
+                print("stored depth_m = ", depth_m[259, 244])
+                print("depth_mm = ", depth_mm[259, 244])
+
+
+                success_depth = cv2.imwrite(image_path_depth, depth_mm)
                 success_rgb = cv2.imwrite(image_path_rgb, color_image)
+                
                 
                 if success_depth and success_rgb:
                     frame_count += 1

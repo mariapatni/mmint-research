@@ -173,7 +173,7 @@ def save_visualization(image, mask, output_dir, frame_num, debug_info=None, prom
     os.makedirs(output_dir, exist_ok=True)
     
     # Create and save the RGB overlay
-    vis_path = os.path.join(output_dir, f"vis_{frame_num:04d}.png")
+    vis_path = os.path.join(output_dir, f"{frame_num:04d}.png")
     display = image.copy()
     
     # Create a colored overlay
@@ -655,7 +655,7 @@ def main():
     if args.output_dir:
         # Use custom output directory
         masks_dir = os.path.join(args.output_dir, "masks")
-        vis_dir = os.path.join(args.output_dir, "vis")
+        vis_dir = os.path.join(args.output_dir, "masks_vis")
         print(f"Using custom output directory: {args.output_dir}")
     
     

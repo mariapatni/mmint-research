@@ -256,7 +256,7 @@ def run_pose_tracking(trial_path, debug_mode=False):
     object_name = os.path.basename(os.path.dirname(trial_path))
     
     data_dir = os.path.dirname(os.path.dirname(os.path.dirname(trial_path)))  # /home/maria/mmint-research/data
-    mesh_path = os.path.join(data_dir, "object_sdf_data", object_name, "exports", "mesh_highres", "mesh_scaled.obj")
+    mesh_path = os.path.join(data_dir, "object_sdf_data", object_name, "mesh_export", "mesh_scaled.obj")
     
     if not os.path.exists(mesh_path):
         print(f"❌ Mesh file not found: {mesh_path}")
@@ -278,11 +278,11 @@ def run_pose_tracking(trial_path, debug_mode=False):
         "--bbox_visualization_path", "None",
         "--pose_visualization_path", pose_vis_dir,
         "--cam_K", cam_K_json,
-        "--est_refine_iter", "5",
-        "--track_refine_iter", "2",
+        "--est_refine_iter", "10",
+        "--track_refine_iter", "4",
         "--apply_scale", "1.0",
         "--activate_2d_tracker",
-        "--activate_kalman_filter"
+        "--activate_kalman_filter",
     ]
     
     if debug_mode:
@@ -318,6 +318,73 @@ def run_pose_tracking(trial_path, debug_mode=False):
         print(f"❌ Unexpected error during pose tracking: {e}")
         return False
 
+def run_pose_visualization(trial_path, debug_mode=False):
+    """
+    Run visualize_poses.py to play back pose tracking results
+    
+    Args:
+        trial_path (str): Path to the trial directory containing pose visualization data
+        debug_mode (bool): Whether to run in debug mode
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    print(f"🎬 Starting pose visualization for trial: {trial_path}")
+    
+    # Find the pose visualization directory
+    gripper_camera_path = os.path.join(trial_path, "gripper_camera")
+    pose_vis_dir = os.path.join(gripper_camera_path, "poses_vis")
+    
+    if not os.path.exists(pose_vis_dir):
+        print(f"❌ Pose visualization directory not found: {pose_vis_dir}")
+        print("💡 Make sure pose tracking has been run first")
+        return False
+    
+    # Check if there are any visualization frames
+    vis_files = [f for f in os.listdir(pose_vis_dir) if f.endswith('.png')]
+    if not vis_files:
+        print(f"❌ No visualization frames found in: {pose_vis_dir}")
+        return False
+    
+    print(f"📁 Found {len(vis_files)} visualization frames")
+    
+    # Build the command for visualize_poses.py
+    cmd = [
+        "python", "./visualize_poses.py",
+        "--frames_dir", pose_vis_dir,
+        "--fps", "30",
+        "--window_name", f"Pose Visualization - {os.path.basename(trial_path)}"
+    ]
+    
+    if debug_mode:
+        print(f"🐛 Debug mode enabled")
+    
+    print(f"📋 Running command: {' '.join(cmd)}")
+    print("🎮 Controls: Space=Pause, Arrows=Step, R=Reset, Q=Quit")
+    
+    try:
+        # Run the visualization script
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),  # Run from data_collection directory
+            check=True,
+            capture_output=False,  # Let output go to terminal
+            text=True
+        )
+        
+        print(f"✅ Pose visualization completed")
+        return True
+        
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Pose visualization failed: {e}")
+        return False
+    except KeyboardInterrupt:
+        print(f"⏹️  Pose visualization interrupted")
+        return False
+    except Exception as e:
+        print(f"❌ Unexpected error during pose visualization: {e}")
+        return False
+
 def main():
     parser = argparse.ArgumentParser()
     
@@ -335,21 +402,27 @@ def main():
     )
     
     parser.add_argument(
-        '--skip-collection',
+        '--collect',
         action='store_true',
-        help='Skip the data collection step (useful for testing later steps)'
+        help='Run data collection step'
     )
     
     parser.add_argument(
-        '--skip-segmentation',
+        '--segment',
         action='store_true',
-        help='Skip the mask segmentation step (useful for testing later steps)'
+        help='Run mask segmentation step'
     )
     
     parser.add_argument(
-        '--skip-tracking',
+        '--track',
         action='store_true',
-        help='Skip the pose tracking step (useful for testing earlier steps)'
+        help='Run pose tracking step'
+    )
+    
+    parser.add_argument(
+        '--visualize',
+        action='store_true',
+        help='Play back pose visualization'
     )
     
     args = parser.parse_args()
@@ -357,13 +430,23 @@ def main():
     print("🚀 Starting combined data collection and processing pipeline")
     print(f"📦 Object: {args.object}")
     print(f"🐛 Debug mode: {args.debug}")
-    print(f"⏭️  Skip collection: {args.skip_collection}")
-    print(f"⏭️  Skip segmentation: {args.skip_segmentation}")
-    print(f"⏭️  Skip tracking: {args.skip_tracking}")
+    print(f"📹 Collect: {args.collect}")
+    print(f"🎭 Segment: {args.segment}")
+    print(f"🎯 Track: {args.track}")
+    print(f"🎬 Visualize: {args.visualize}")
     print("-" * 50)
     
+    # Get the latest trial path (needed for most operations)
+    trial_path = None
+    if args.segment or args.track or args.visualize:
+        trial_path = get_latest_trial_path(args.object)
+        if not trial_path:
+            print("❌ Could not find trial path. Exiting.")
+            sys.exit(1)
+        print(f"📁 Using latest trial: {trial_path}")
+    
     # Step 1: Data Collection
-    if not args.skip_collection:
+    if args.collect:
         print("\n📹 STEP 1: Data Collection")
         print("=" * 30)
         
@@ -373,19 +456,20 @@ def main():
             sys.exit(1)
         
         print("✅ Data collection completed successfully!")
-    else:
-        print("\n⏭️  SKIPPING: Data Collection")
-    
-    # Get the latest trial path for next steps
-    trial_path = get_latest_trial_path(args.object)
-    if not trial_path:
-        print("❌ Could not find trial path. Exiting.")
-        sys.exit(1)
-    
-    print(f"\n📁 Data available at: {trial_path}")
+        
+        # Update trial path after collection
+        trial_path = get_latest_trial_path(args.object)
+        if not trial_path:
+            print("❌ Could not find trial path after collection. Exiting.")
+            sys.exit(1)
+        print(f"📁 New trial available at: {trial_path}")
     
     # Step 2: Mask Segmentation
-    if not args.skip_segmentation:
+    if args.segment:
+        if not trial_path:
+            print("❌ No trial path available for segmentation. Run --collect first or ensure trial exists.")
+            sys.exit(1)
+            
         print("\n🎭 STEP 2: Object Segmentation")
         print("=" * 30)
         
@@ -395,11 +479,13 @@ def main():
             sys.exit(1)
         
         print("✅ Mask segmentation completed successfully!")
-    else:
-        print("\n⏭️  SKIPPING: Mask Segmentation")
     
     # Step 3: Pose Tracking
-    if not args.skip_tracking:
+    if args.track:
+        if not trial_path:
+            print("❌ No trial path available for tracking. Run --collect first or ensure trial exists.")
+            sys.exit(1)
+            
         print("\n🎯 STEP 3: Pose Tracking")
         print("=" * 30)
         
@@ -409,11 +495,71 @@ def main():
             sys.exit(1)
         
         print("✅ Pose tracking completed successfully!")
-    else:
-        print("\n⏭️  SKIPPING: Pose Tracking")
+    
+    # Step 4: Pose Visualization
+    if args.visualize:
+        if not trial_path:
+            print("❌ No trial path available for visualization. Run --collect first or ensure trial exists.")
+            sys.exit(1)
+            
+        print("\n🎬 STEP 4: Pose Visualization")
+        print("=" * 30)
+        
+        success = run_pose_visualization(trial_path, args.debug)
+        if not success:
+            print("❌ Pose visualization failed.")
+        else:
+            print("✅ Pose visualization completed successfully!")
+    
+    # If no specific steps were requested, run the full pipeline
+    if not any([args.collect, args.segment, args.track, args.visualize]):
+        print("\n🚀 Running full pipeline (no specific steps requested)")
+        print("=" * 50)
+        
+        # Step 1: Data Collection
+        print("\n📹 STEP 1: Data Collection")
+        print("=" * 30)
+        
+        success = run_data_collection(args.object, args.debug)
+        if not success:
+            print("❌ Data collection failed. Exiting.")
+            sys.exit(1)
+        
+        print("✅ Data collection completed successfully!")
+        
+        # Get the trial path
+        trial_path = get_latest_trial_path(args.object)
+        if not trial_path:
+            print("❌ Could not find trial path. Exiting.")
+            sys.exit(1)
+        
+        print(f"📁 Data available at: {trial_path}")
+        
+        # Step 2: Mask Segmentation
+        print("\n🎭 STEP 2: Object Segmentation")
+        print("=" * 30)
+        
+        success = run_mask_segmentation(trial_path, args.debug)
+        if not success:
+            print("❌ Mask segmentation failed. Exiting.")
+            sys.exit(1)
+        
+        print("✅ Mask segmentation completed successfully!")
+        
+        # Step 3: Pose Tracking
+        print("\n🎯 STEP 3: Pose Tracking")
+        print("=" * 30)
+        
+        success = run_pose_tracking(trial_path, args.debug)
+        if not success:
+            print("❌ Pose tracking failed. Exiting.")
+            sys.exit(1)
+        
+        print("✅ Pose tracking completed successfully!")
     
     print("\n🎉 Pipeline completed!")
-    print(f"📂 Results available in: {trial_path}")
+    if trial_path:
+        print(f"📂 Results available in: {trial_path}")
 
 if __name__ == "__main__":
     main()

@@ -40,8 +40,37 @@ def get_latest_trial_path(object_name):
     
     # Extract trial numbers and find the maximum
     trial_numbers = [int(d.replace('trial', '')) for d in trial_dirs]
-    return max(trial_numbers)
+    return 'trial' + str(max(trial_numbers))
+
+def load_depth_point_clouds(object_name):
+    object_path = get_object_path(object_name)
+    if not object_path:
+        print(f"❌ Object path not found for: {object_name}")
+        return None
+
+    trial_path = get_latest_trial_path(object_name)
+    if trial_path is None:
+        print(f"❌ No trials found for: {object_name}")
+        return None
+
+    depth_maps_path = os.path.join(object_path, trial_path, "gripper_camera", "depth")
+    if not os.path.exists(depth_maps_path):
+        print(f"❌ No depth maps found for: {object_name}")
+        return None
     
+    depth_maps = []
+    for file in os.listdir(depth_maps_path):
+        
+        depth_map_path = os.path.join(depth_maps_path, file)
+        depth_map = cv2.imread(depth_map_path, -1) / 1e3  # Convert from mm to meters
+        depth_map = cv2.resize(depth_map, (depth_map.shape[1], depth_map.shape[0]), interpolation=cv2.INTER_NEAREST)
+        depth_map[(depth_map < 0.001) | (depth_map >= np.inf)] = 0
+        
+        depth_maps.append(depth_map)
+
+        print(f"📁 Depth map: {depth_map}")
+
+
 def load_poses(object_name):
     """
     Load the poses.npy file for the given object
@@ -59,12 +88,11 @@ def load_poses(object_name):
         print(f"❌ Object path not found for: {object_name}")
         return None
 
-    trial_number = get_latest_trial_path(object_name)
-    if trial_number is None:
+    trial_path = get_latest_trial_path(object_name)
+    if trial_path is None:
         print(f"❌ No trials found for: {object_name}")
         return None
-        
-    trial_path = "trial" + str(trial_number)
+    
     poses_path = os.path.join(object_path, trial_path, "gripper_camera", "poses.npy")
     print(f"📁 Loading poses for: {object_name} under {trial_path}")
     
@@ -140,7 +168,9 @@ def load_nerf(object_name):
     return mesh
 
 def create_point(pose):
+    
     # Create a sphere using Open3D's sphere geometry
+    
     radius = 0.01
     
     # Create a sphere
@@ -153,21 +183,21 @@ def create_point(pose):
     return sphere
     
 
+def get_d_local(camera_pose, d_global_pose):
+    R = camera_pose[:3, :3]
+    t = camera_pose[:3, 3]
+    d_local = R.T @ (d_global_pose[:3, 3])
+    return d_local
+
 def main():
     parser = argparse.ArgumentParser(description='Load and analyze poses.npy file and NeRF mesh')
     parser.add_argument('object', type=str, help='Name of the object to analyze')
     args = parser.parse_args()
     
-    print(f"🔍 Analysis for object: {args.object}")
-    print("=" * 50)
-    
-    # Load poses
-    print("\n📊 POSE ANALYSIS:")
+
     poses = load_poses(args.object)
     if poses is None:
         print(f"❌ Could not load poses for: {args.object}")
-
-    
     
     # Load NeRF mesh
     mesh = load_nerf(args.object)
@@ -179,19 +209,85 @@ def main():
         origin=[0, 0, 0],  # Place at origin after centering
     )
     
+    camera_poses = np.linalg.inv(poses)
+    camera_points = []
+    camera_pose_frames = []
+    digit_left_points = []
     
-    nerf_points = poses[:, :3, 3]
-    
-    
-    
-    # points = []
-    # for i, pose in enumerate(poses):
-    #     point = create_point(pose)
-    #     points.append(point)
-    #     if i == 0 or i == 89 or i == 163:
-    #         print(i, ",", pose)
+    global_left_end_point = np.array([36.57, -169.025, 131.016]) / 1000
 
-    o3d.visualization.draw_geometries([mesh, *points, coord_frame])
+    
+    
+
+    T = camera_poses[0]
+    R = T[:3, :3]
+    t = T[:3, 3]
+
+    T_inv = poses[0]
+
+
+
+    # # Convert global end point from Z-up to Y-up
+    # R_z2y = np.array([[1, 0, 0], 
+    #                   [0, 0, 1], 
+    #                   [0, -1, 0]])
+    
+    p_end_yup = global_left_end_point
+
+    print("Absolute left end point:", camera_poses[0][:3, 3] + p_end_yup)
+
+
+    # Step 3: Convert point to homogeneous coordinates
+    p_end_yup_h = np.append(p_end_yup, 1)
+
+    # Step 4: Apply inverse pose to get local camera frame coords
+    p_end_local_h = T_inv @ p_end_yup_h
+
+    # Step 5: Extract XYZ local coordinates
+    p_end_local = p_end_local_h[:3]
+
+    print("End point in camera local frame:", p_end_local)
+
+
+    p_global_h = T @ p_end_local_h
+    p_global = p_global_h[:3]
+
+    print("End point in camera global frame:", p_global)
+
+    
+
+    
+
+
+   
+    
+
+    
+
+    
+    for i, camera_pose in enumerate(camera_poses):
+        R = camera_pose[:3, :3]
+        t = camera_pose[:3, 3]
+        
+        point = create_point(camera_pose)
+        camera_points.append(point)
+        
+        frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+        frame.transform(camera_pose)
+        camera_pose_frames.append(frame)
+
+
+
+        # digit_left_point = R @ d_local_left + t
+        # digit_left_pose = np.eye(4)
+        # digit_left_pose[:3, 3] = digit_left_point
+        # digit_left_point = create_point(digit_left_pose)
+        # digit_left_points.append(digit_left_point)
+
+        
+
+    
+    o3d.visualization.draw_geometries([mesh, camera_points[0], camera_pose_frames[0], coord_frame])
     
 if __name__ == "__main__":
     main()
